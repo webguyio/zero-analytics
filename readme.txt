@@ -1,4 +1,5 @@
 === Zero Analytics ===
+
 Contributors: webguyio
 Donate link: https://webguy.io/donate
 Tags: analytics, statistics, privacy, gdpr, ccpa
