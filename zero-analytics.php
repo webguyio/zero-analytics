@@ -52,7 +52,7 @@ function zeroa_activate(): void {
 	dbDelta( $sql );
 	// Daily cron: rotate unique-visitor salt
 	if ( !wp_next_scheduled( 'zeroa_rotate_salt' ) ) {
-		wp_schedule_event( strtotime( 'tomorrow midnight' ), 'daily', 'zeroa_rotate_salt' );
+		wp_schedule_event( strtotime( 'tomorrow midnight UTC' ), 'daily', 'zeroa_rotate_salt' );
 	}
 }
 
@@ -332,11 +332,13 @@ function zeroa_handle_export(): void {
 	global $wpdb;
 	$table = $wpdb->prefix . ZEROA_TABLE;
 	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is a constant, full export with no user-supplied interpolation
-	$rows = $wpdb->get_results( "SELECT path, referrer_type, referrer_name, device_type, country_code, status_code, is_bot, is_unique, recorded_at FROM {$table} ORDER BY recorded_at DESC", ARRAY_A );
+	$offset = zeroa_local_offset();
+	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name is a constant, offset is generated server-side
+	$rows = $wpdb->get_results( $wpdb->prepare( "SELECT path, referrer_type, referrer_name, device_type, country_code, status_code, is_bot, is_unique, CONVERT_TZ( recorded_at, '+00:00', %s ) AS recorded_at FROM {$table} ORDER BY recorded_at DESC", $offset ), ARRAY_A );
 	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 	header( 'Content-Type: text/csv; charset=utf-8' );
 	$site_slug = sanitize_title( get_bloginfo( 'name' ) );
-	header( 'Content-Disposition: attachment; filename="' . $site_slug . '-views-' . gmdate( 'Y-m-d' ) . '.csv"' );
+	header( 'Content-Disposition: attachment; filename="' . $site_slug . '-views-' . wp_date( 'Y-m-d' ) . '.csv"' );
 	$out = fopen( 'php://output', 'w' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen
 	fputcsv( $out, [ 'path', 'referrer_type', 'referrer_name', 'device_type', 'country_code', 'status_code', 'is_bot', 'is_unique', 'recorded_at' ] );
 	foreach ( $rows as $row ) {
@@ -418,11 +420,12 @@ function zeroa_render_page(): void {
 	];
 	?>
 	<div class="wrap zeroa-wrap">
+		<p class="zeroa-local-time"><?php printf( /* translators: %s: current date and time */ esc_html__( 'Today is %s', 'zero-analytics' ), '<strong>' . esc_html( wp_date( 'D, M j, g:ia' ) ) . '</strong>' ); ?><br><small>(<a href="<?php echo esc_url( admin_url( 'options-general.php' ) ); ?>"><?php esc_html_e( 'not right?', 'zero-analytics' ); ?></a>)</small></p>
 		<h1><?php esc_html_e( 'Analytics', 'zero-analytics' ); ?></h1>
 		<?php if ( isset( $_GET['zeroa_cleared'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only success flag, no state change ?>
 		<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'All analytics data has been cleared.', 'zero-analytics' ); ?></p></div>
 		<?php endif; ?>
-		<div class="zeroa-range-nav">
+		<div class="zeroa-range-nav clear">
 			<?php
 			foreach ( [
 				'7'   => __( 'Last 7 days', 'zero-analytics' ),
@@ -466,8 +469,8 @@ function zeroa_render_page(): void {
 				<?php foreach ( $chart as $day => $data ) : ?>
 				<div class="zeroa-chart-bar-wrap<?php echo $data['pageviews'] > 0 ? ' has-data' : ''; ?>">
 					<?php
-					/* translators: 1: number of pageviews, 2: number of unique visitors */
-					$zeroa_tip = esc_attr( sprintf( __( '%1$s pageviews, %2$s unique', 'zero-analytics' ), number_format_i18n( $data['pageviews'] ), number_format_i18n( $data['uniques'] ) ) );
+					/* translators: 1: date, 2: number of pageviews, 3: number of unique visitors */
+					$zeroa_tip = esc_attr( sprintf( __( '%1$s: %2$s pageviews, %3$s unique', 'zero-analytics' ), $data['tip_date'], number_format_i18n( $data['pageviews'] ), number_format_i18n( $data['uniques'] ) ) );
 					?>
 					<div class="zeroa-chart-bar-views" style="height:<?php echo esc_attr( round( ( $data['pageviews'] / $max ) * 100 ) ); ?>%" title="<?php echo $zeroa_tip; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped via esc_attr() above ?>"></div>
 					<div class="zeroa-chart-bar-uniques" style="height:<?php echo esc_attr( round( ( $data['uniques'] / $max ) * 100 ) ); ?>%" title="<?php echo $zeroa_tip; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped via esc_attr() above ?>"></div>
@@ -703,54 +706,69 @@ function zeroa_render_page(): void {
 }
 
 // Queries
+function zeroa_local_offset(): string {
+	$offset = get_option( 'gmt_offset' );
+	if ( !$offset ) {
+		return '+00:00';
+	}
+	$hours   = (int) $offset;
+	$minutes = abs( round( ( $offset - $hours ) * 60 ) );
+	return sprintf( '%+03d:%02d', $hours, $minutes );
+}
+
 function zeroa_date_clause( int $days ): string {
 	if ( 0 === $days ) {
 		return '';
 	}
-	// Using gmdate for UTC consistency; recorded_at is stored as UTC
-	$since = gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
-	return $GLOBALS['wpdb']->prepare( ' AND recorded_at >= %s', $since );
+	$since = wp_date( 'Y-m-d H:i:s', time() - ( $days * DAY_IN_SECONDS ) );
+	return $GLOBALS['wpdb']->prepare( ' AND CONVERT_TZ( recorded_at, \'+00:00\', %s ) >= %s', zeroa_local_offset(), $since );
 }
 
 function zeroa_get_chart_data( string $range ): array {
 	global $wpdb;
 	$table    = $wpdb->prefix . ZEROA_TABLE;
+	$offset   = zeroa_local_offset();
 	$monthly  = in_array( $range, [ '90', 'all' ], true );
 	if ( $monthly ) {
-		$start = $range === 'all' ? '2000-01-01' : gmdate( 'Y-m-d', strtotime( '-89 days' ) );
+		$start = $range === 'all' ? '2000-01-01' : wp_date( 'Y-m-d', time() - ( 89 * DAY_IN_SECONDS ) );
 		// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name is a constant, date is generated server-side
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT DATE_FORMAT( recorded_at, '%%Y-%%m' ) AS period,
+				"SELECT DATE_FORMAT( CONVERT_TZ( recorded_at, '+00:00', %s ), '%%Y-%%m' ) AS period,
 					SUM( CASE WHEN is_bot = 0 AND status_code < 400 THEN 1 ELSE 0 END ) AS pageviews,
 					SUM( CASE WHEN is_bot = 0 AND is_unique = 1 AND status_code < 400 THEN 1 ELSE 0 END ) AS uniques
 				FROM {$table}
-				WHERE is_bot = 0 AND status_code < 400 AND DATE( recorded_at ) >= %s
+				WHERE is_bot = 0 AND status_code < 400 AND DATE( CONVERT_TZ( recorded_at, '+00:00', %s ) ) >= %s
 				GROUP BY period
 				ORDER BY period ASC",
+				$offset,
+				$offset,
 				$start
 			)
 		);
 		// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
 		$data = [];
 		foreach ( $rows as $row ) {
-			$data[ $row->period ] = [ 'pageviews' => (int) $row->pageviews, 'uniques' => (int) $row->uniques, 'label' => gmdate( 'M Y', strtotime( $row->period . '-01' ) ) ];
+			$data[ $row->period ] = [ 'pageviews' => (int) $row->pageviews, 'uniques' => (int) $row->uniques, 'label' => wp_date( 'M Y', gmmktime( 12, 0, 0, (int) substr( $row->period, 5, 2 ), 1, (int) substr( $row->period, 0, 4 ) ) ), 'tip_date' => wp_date( 'M Y', gmmktime( 12, 0, 0, (int) substr( $row->period, 5, 2 ), 1, (int) substr( $row->period, 0, 4 ) ) ) ];
 		}
 		return $data;
 	}
 	$days  = $range === '7' ? 7 : 30;
-	$start = gmdate( 'Y-m-d', strtotime( '-' . ( $days - 1 ) . ' days' ) );
+	$start = wp_date( 'Y-m-d', time() - ( ( $days - 1 ) * DAY_IN_SECONDS ) );
 	// phpcs:disable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- table name is a constant, date is generated server-side
 	$rows = $wpdb->get_results(
 		$wpdb->prepare(
-			"SELECT DATE( recorded_at ) AS period,
+			"SELECT DATE( CONVERT_TZ( recorded_at, '+00:00', %s ) ) AS period,
 				SUM( CASE WHEN is_bot = 0 AND status_code < 400 THEN 1 ELSE 0 END ) AS pageviews,
 				SUM( CASE WHEN is_bot = 0 AND is_unique = 1 AND status_code < 400 THEN 1 ELSE 0 END ) AS uniques
 			FROM {$table}
-			WHERE is_bot = 0 AND status_code < 400 AND DATE( recorded_at ) >= %s
-			GROUP BY DATE( recorded_at )
+			WHERE is_bot = 0 AND status_code < 400 AND DATE( CONVERT_TZ( recorded_at, '+00:00', %s ) ) >= %s
+			GROUP BY DATE( CONVERT_TZ( recorded_at, '+00:00', %s ) )
 			ORDER BY period ASC",
-			$start
+			$offset,
+			$offset,
+			$start,
+			$offset
 		)
 	);
 	// phpcs:enable WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter
@@ -760,8 +778,9 @@ function zeroa_get_chart_data( string $range ): array {
 	}
 	$data = [];
 	for ( $i = $days - 1; $i >= 0; $i-- ) {
-		$day          = gmdate( 'Y-m-d', strtotime( "-{$i} days" ) );
-		$data[ $day ] = array_merge( $db_data[ $day ] ?? [ 'pageviews' => 0, 'uniques' => 0 ], [ 'label' => gmdate( 'M j', strtotime( $day ) ) ] );
+		$ts           = time() - ( $i * DAY_IN_SECONDS );
+		$day          = wp_date( 'Y-m-d', $ts );
+		$data[ $day ] = array_merge( $db_data[ $day ] ?? [ 'pageviews' => 0, 'uniques' => 0 ], [ 'label' => wp_date( 'M j', $ts ), 'tip_date' => wp_date( 'D, M j', $ts ) ] );
 	}
 	return $data;
 }
@@ -904,25 +923,18 @@ function zeroa_admin_styles(): void {
 	wp_enqueue_style( 'zeroa-admin' );
 	$css = '
 		.zeroa-wrap { max-width: 1200px; }
+		.zeroa-local-time { text-align: right; float: right; }
 		.zeroa-range-nav { margin: 16px 0; display: flex; gap: 8px; }
 		.zeroa-range-btn { padding: 6px 14px; border: 1px solid #c3c4c7; border-radius: 4px; text-decoration: none; color: #1d2327; background: #fff; font-size: 13px; }
-		.zeroa-range-btn:hover { border-color: var(--wp-admin-theme-color); color: var(--wp-admin-theme-color); }
+		.zeroa-range-btn:hover, .zeroa-range-btn:focus { border-color: var(--wp-admin-theme-color); color: var(--wp-admin-theme-color); }
 		.zeroa-range-btn.zeroa-active { background: var(--wp-admin-theme-color); border-color: var(--wp-admin-theme-color); color: #fff; }
 		.zeroa-summary-cards { display: flex; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
 		.zeroa-card { background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px 24px; min-width: 160px; display: flex; flex-direction: column; gap: 4px; }
 		.zeroa-card-value { font-size: 28px; font-weight: 600; line-height: 1; color: #1d2327; }
 		.zeroa-card-label { font-size: 12px; color: #50575e; text-transform: uppercase; letter-spacing: 0.04em; }
-		.zeroa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
-		.zeroa-grid .zeroa-section { display: flex; flex-direction: column; }
-		.zeroa-section h2 { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
-		.zeroa-pagination { display: flex; gap: 8px; margin-top: 8px; min-height: 28px; align-items: center; }
-		.zeroa-pagination-disabled { opacity: 0.4; cursor: default; pointer-events: none; }
-		.zeroa-pagination-page { font-size: 12px; color: #50575e; }
-		.zeroa-actions { display: flex; gap: 8px; margin-top: 48px; align-items: center; }
 		.zeroa-chart { margin-bottom: 24px; background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 16px; overflow-x: auto; }
 		.zeroa-chart-bars { display: flex; align-items: flex-end; gap: 2px; height: 160px; }
 		.zeroa-chart-bar-wrap { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: 1; height: 100%; gap: 0; position: relative; }
-		.zeroa-chart-bar { width: 100%; border-radius: 2px 2px 0 0; min-height: 2px; }
 		.zeroa-chart-bar-views { background: var(--wp-editor-canvas-background); position: absolute; bottom: 0; width: 100%; border-radius: 2px 2px 0 0; z-index: 1; }
 		.zeroa-chart-bar-uniques { background: var(--wp-admin-theme-color); position: absolute; bottom: 0; width: 100%; border-radius: 2px 2px 0 0; z-index: 2; }
 		.zeroa-chart-label { font-size: 9px; color: #50575e; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; width: 100%; z-index: 3; }
@@ -932,12 +944,15 @@ function zeroa_admin_styles(): void {
 		.zeroa-chart-legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
 		.zeroa-chart-legend .legend-uniques::before { background: var(--wp-admin-theme-color); }
 		.zeroa-chart-legend .legend-views::before { background: var(--wp-editor-canvas-background); }
-		.zeroa-widget-stats { display: flex; gap: 20px; margin-bottom: 8px; }
-		.zeroa-stat { display: flex; flex-direction: column; }
-		.zeroa-stat-value { font-size: 22px; font-weight: 600; line-height: 1; }
-		.zeroa-stat-label { font-size: 11px; color: #50575e; text-transform: uppercase; letter-spacing: 0.04em; }
-		.zeroa-widget-period { color: #50575e; font-size: 12px; margin: 4px 0 8px; }
-		@media ( max-width: 782px ) { .zeroa-grid { grid-template-columns: 1fr; } }
+		.zeroa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px; }
+		.zeroa-grid .zeroa-section { display: flex; flex-direction: column; }
+		.zeroa-section h2 { font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+		.zeroa-table-wrap table { border-radius: 4px; }
+		.zeroa-pagination { display: flex; gap: 8px; margin-top: 8px; min-height: 28px; align-items: center; }
+		.zeroa-pagination-disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+		.zeroa-pagination-page { font-size: 12px; color: #50575e; }
+		.zeroa-actions { display: flex; gap: 8px; margin-top: 48px; align-items: center; }
+		@media ( max-width: 782px ) { .zeroa-grid { grid-template-columns: 1fr; } .zeroa-summary-cards { display: grid; grid-template-columns: 1fr 1fr; } .zeroa-card { min-width: unset; } .zeroa-range-nav { display: grid; grid-template-columns: repeat(4, 1fr); } .zeroa-range-btn { text-align: center; } }
 	';
 	wp_add_inline_style( 'zeroa-admin', $css );
 }
