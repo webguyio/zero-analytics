@@ -1,6 +1,6 @@
 <?php
 /*
-Zeroa Analytics Endpoint
+Zero Analytics Endpoint
 */
 
 if ( !defined( 'ABSPATH' ) ) {

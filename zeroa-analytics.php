@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: Zeroa Analytics
+Plugin Name: Zero Analytics
 Plugin URI: https://github.com/webguyio/zero-analytics
 Description: Lightweight, GDPR-compliant analytics. No cookies, no personal data, no consent banner required.
 Version: 0.1
