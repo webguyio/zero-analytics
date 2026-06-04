@@ -1,6 +1,6 @@
 <?php
 /*
-Zero Analytics Endpoint
+Zeroa Analytics Endpoint
 */
 
 if ( !defined( 'ABSPATH' ) ) {
@@ -154,7 +154,7 @@ add_action( 'template_redirect', function() {
 	global $wpdb;
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery -- performance-critical insert, no caching layer appropriate
 	$wpdb->insert(
-		$wpdb->prefix . 'zero_analytics',
+		$wpdb->prefix . 'zeroa_analytics',
 		[
 			'path'          => $zeroa_path,
 			'referrer_type' => $zeroa_classify['type'],

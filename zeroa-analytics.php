@@ -1,6 +1,6 @@
 <?php
 /*
-Plugin Name: Zero Analytics
+Plugin Name: Zeroa Analytics
 Plugin URI: https://github.com/webguyio/zero-analytics
 Description: Lightweight, GDPR-compliant analytics. No cookies, no personal data, no consent banner required.
 Version: 0.1
@@ -10,7 +10,7 @@ Requires at least: 6.0
 Requires PHP: 8.0
 License: CC0
 License URI: https://creativecommons.org/public-domain/cc0/
-Text Domain: zero-analytics
+Text Domain: zeroa-analytics
 */
 
 if ( !defined( 'ABSPATH' ) ) {
@@ -19,10 +19,10 @@ if ( !defined( 'ABSPATH' ) ) {
 }
 
 define( 'ZEROA_VERSION', '0.1' );
-define( 'ZEROA_TABLE',   'zero_analytics' );
+define( 'ZEROA_TABLE',   'zeroa_analytics' );
 
 // Endpoint file
-require_once plugin_dir_path( __FILE__ ) . 'zero-analytics-endpoint.php';
+require_once plugin_dir_path( __FILE__ ) . 'zeroa-analytics-endpoint.php';
 
 // Installation / Uninstallation
 register_activation_hook( __FILE__, 'zeroa_activate' );
@@ -301,7 +301,7 @@ function zeroa_pagination( string $section, int $page, bool $has_next, string $r
 // Admin
 add_action( 'admin_menu', 'zeroa_admin_menu', 999 );
 add_action( 'admin_enqueue_scripts', function( $hook ) {
-	if ( 'dashboard_page_zero-analytics' === $hook || 'index.php' === $hook ) {
+	if ( 'dashboard_page_zeroa-analytics' === $hook || 'index.php' === $hook ) {
 		zeroa_admin_styles();
 	}
 } );
@@ -311,10 +311,10 @@ add_action( 'admin_init', 'zeroa_handle_clear' );
 function zeroa_admin_menu(): void {
 	add_submenu_page(
 		'index.php',
-		__( 'Analytics', 'zero-analytics' ),
-		__( 'Analytics', 'zero-analytics' ),
+		__( 'Analytics', 'zeroa-analytics' ),
+		__( 'Analytics', 'zeroa-analytics' ),
 		'manage_options',
-		'zero-analytics',
+		'zeroa-analytics',
 		'zeroa_render_page'
 	);
 }
@@ -360,7 +360,7 @@ function zeroa_handle_clear(): void {
 	$wpdb->query( 'TRUNCATE TABLE ' . $wpdb->prefix . ZEROA_TABLE );
 	// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.NotPrepared -- clear unique visitor transients; no WP API exists for wildcard transient deletion
 	$wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_zeroa_seen_%' OR option_name LIKE '_transient_timeout_zeroa_seen_%'" );
-	wp_safe_redirect( add_query_arg( [ 'page' => 'zero-analytics', 'zeroa_cleared' => '1' ], admin_url( 'index.php' ) ) );
+	wp_safe_redirect( add_query_arg( [ 'page' => 'zeroa-analytics', 'zeroa_cleared' => '1' ], admin_url( 'index.php' ) ) );
 	exit;
 }
 
@@ -369,20 +369,20 @@ add_action( 'wp_dashboard_setup', 'zeroa_register_widget' );
 function zeroa_register_widget(): void {
 	wp_add_dashboard_widget(
 		'zeroa_dashboard_widget',
-		__( 'Analytics', 'zero-analytics' ),
+		__( 'Analytics', 'zeroa-analytics' ),
 		'zeroa_render_widget'
 	);
 }
 
 function zeroa_render_widget(): void {
 	$stats = zeroa_get_summary( 30 );
-	$url   = admin_url( 'index.php?page=zero-analytics' );
+	$url   = admin_url( 'index.php?page=zeroa-analytics' );
 	?>
 	<div class="zeroa-widget">
-		<p style="margin-top:0;float:right"><a href="<?php echo esc_url( $url ); ?>"><?php esc_html_e( 'View More', 'zero-analytics' ); ?> &rarr;</a></p>
-		<p><?php esc_html_e( 'Last 30 Days...', 'zero-analytics' ); ?></p>
-		<p style="margin-bottom:0"><strong style="font-size:30px"><?php echo esc_html( number_format_i18n( $stats['unique'] ) ); ?></strong> <?php esc_html_e( 'Unique Visitors', 'zero-analytics' ); ?>
-		<strong style="font-size:30px"><?php echo esc_html( number_format_i18n( $stats['pageviews'] ) ); ?></strong> <?php esc_html_e( 'Pageviews', 'zero-analytics' ); ?></p>
+		<p style="margin-top:0;float:right"><a href="<?php echo esc_url( $url ); ?>"><?php esc_html_e( 'View More', 'zeroa-analytics' ); ?> &rarr;</a></p>
+		<p><?php esc_html_e( 'Last 30 Days...', 'zeroa-analytics' ); ?></p>
+		<p style="margin-bottom:0"><strong style="font-size:30px"><?php echo esc_html( number_format_i18n( $stats['unique'] ) ); ?></strong> <?php esc_html_e( 'Unique Visitors', 'zeroa-analytics' ); ?> &nbsp; &nbsp;
+		<strong style="font-size:30px"><?php echo esc_html( number_format_i18n( $stats['pageviews'] ) ); ?></strong> <?php esc_html_e( 'Pageviews', 'zeroa-analytics' ); ?></p>
 	</div>
 	<?php
 }
@@ -390,7 +390,7 @@ function zeroa_render_widget(): void {
 // Analytics Page
 function zeroa_render_page(): void {
 	if ( !current_user_can( 'manage_options' ) ) {
-		wp_die( esc_html__( 'You do not have permission to view this page.', 'zero-analytics' ) );
+		wp_die( esc_html__( 'You do not have permission to view this page.', 'zeroa-analytics' ) );
 	}
 	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only filter, no state change
 	$range          = isset( $_GET['range'] ) ? sanitize_key( $_GET['range'] ) : '30';
@@ -413,25 +413,25 @@ function zeroa_render_page(): void {
 	$errors    = zeroa_get_error_pages( $days, $errors_paged );
 	$bots      = zeroa_get_bot_summary( $days, $bots_paged );
 	$device_labels = [
-		0 => __( 'Unknown', 'zero-analytics' ),
-		1 => __( 'Desktop', 'zero-analytics' ),
-		2 => __( 'Mobile', 'zero-analytics' ),
-		3 => __( 'Tablet', 'zero-analytics' ),
+		0 => __( 'Unknown', 'zeroa-analytics' ),
+		1 => __( 'Desktop', 'zeroa-analytics' ),
+		2 => __( 'Mobile', 'zeroa-analytics' ),
+		3 => __( 'Tablet', 'zeroa-analytics' ),
 	];
 	?>
 	<div class="wrap zeroa-wrap">
-		<p class="zeroa-local-time"><?php printf( /* translators: %s: current date and time */ esc_html__( 'Today is %s', 'zero-analytics' ), '<strong>' . esc_html( wp_date( 'D, M j, g:ia' ) ) . '</strong>' ); ?><br><small>(<a href="<?php echo esc_url( admin_url( 'options-general.php' ) ); ?>"><?php esc_html_e( 'not right?', 'zero-analytics' ); ?></a>)</small></p>
-		<h1><?php esc_html_e( 'Analytics', 'zero-analytics' ); ?></h1>
+		<p class="zeroa-local-time"><?php printf( /* translators: %s: current date and time */ esc_html__( 'Today is %s', 'zeroa-analytics' ), '<strong>' . esc_html( wp_date( 'D, M j, g:ia' ) ) . '</strong>' ); ?><br><small>(<a href="<?php echo esc_url( admin_url( 'options-general.php' ) ); ?>" title="<?php esc_html_e( 'Update Your Timezone', 'zeroa-analytics' ); ?>"><?php esc_html_e( 'not right?', 'zeroa-analytics' ); ?></a>)</small></p>
+		<h1><?php esc_html_e( 'Analytics', 'zeroa-analytics' ); ?></h1>
 		<?php if ( isset( $_GET['zeroa_cleared'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only success flag, no state change ?>
-		<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'All analytics data has been cleared.', 'zero-analytics' ); ?></p></div>
+		<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'All analytics data has been cleared.', 'zeroa-analytics' ); ?></p></div>
 		<?php endif; ?>
 		<div class="zeroa-range-nav clear">
 			<?php
 			foreach ( [
-				'7'   => __( 'Last 7 days', 'zero-analytics' ),
-				'30'  => __( 'Last 30 days', 'zero-analytics' ),
-				'90'  => __( 'Last 90 days', 'zero-analytics' ),
-				'all' => __( 'All time', 'zero-analytics' ),
+				'7'   => __( 'Last 7 days', 'zeroa-analytics' ),
+				'30'  => __( 'Last 30 days', 'zeroa-analytics' ),
+				'90'  => __( 'Last 90 days', 'zeroa-analytics' ),
+				'all' => __( 'All time', 'zeroa-analytics' ),
 			] as $key => $label ) :
 				$active = ( $range === (string) $key ) ? ' zeroa-active' : '';
 				$url    = add_query_arg( 'range', $key );
@@ -443,19 +443,19 @@ function zeroa_render_page(): void {
 		<div class="zeroa-summary-cards">
 			<div class="zeroa-card">
 				<span class="zeroa-card-value"><?php echo esc_html( number_format_i18n( $stats['unique'] ) ); ?></span>
-				<span class="zeroa-card-label"><?php esc_html_e( 'Unique Visitors', 'zero-analytics' ); ?></span>
+				<span class="zeroa-card-label"><?php esc_html_e( 'Unique Visitors', 'zeroa-analytics' ); ?></span>
 			</div>
 			<div class="zeroa-card">
 				<span class="zeroa-card-value"><?php echo esc_html( number_format_i18n( $stats['pageviews'] ) ); ?></span>
-				<span class="zeroa-card-label"><?php esc_html_e( 'Pageviews', 'zero-analytics' ); ?></span>
+				<span class="zeroa-card-label"><?php esc_html_e( 'Pageviews', 'zeroa-analytics' ); ?></span>
 			</div>
 			<div class="zeroa-card">
 				<span class="zeroa-card-value"><?php echo esc_html( number_format_i18n( $stats['errors'] ) ); ?></span>
-				<span class="zeroa-card-label"><?php esc_html_e( 'Errors', 'zero-analytics' ); ?></span>
+				<span class="zeroa-card-label"><?php esc_html_e( 'Errors', 'zeroa-analytics' ); ?></span>
 			</div>
 			<div class="zeroa-card">
 				<span class="zeroa-card-value"><?php echo esc_html( number_format_i18n( $stats['bots'] ) ); ?></span>
-				<span class="zeroa-card-label"><?php esc_html_e( 'Bot Visits', 'zero-analytics' ); ?></span>
+				<span class="zeroa-card-label"><?php esc_html_e( 'Bot Visits', 'zeroa-analytics' ); ?></span>
 			</div>
 		</div>
 
@@ -470,7 +470,7 @@ function zeroa_render_page(): void {
 				<div class="zeroa-chart-bar-wrap<?php echo $data['pageviews'] > 0 ? ' has-data' : ''; ?>">
 					<?php
 					/* translators: 1: date, 2: number of pageviews, 3: number of unique visitors */
-					$zeroa_tip = esc_attr( sprintf( __( '%1$s: %2$s pageviews, %3$s unique', 'zero-analytics' ), $data['tip_date'], number_format_i18n( $data['pageviews'] ), number_format_i18n( $data['uniques'] ) ) );
+					$zeroa_tip = esc_attr( sprintf( __( '%1$s: %2$s pageviews, %3$s unique', 'zeroa-analytics' ), $data['tip_date'], number_format_i18n( $data['pageviews'] ), number_format_i18n( $data['uniques'] ) ) );
 					?>
 					<div class="zeroa-chart-bar-views" style="height:<?php echo esc_attr( round( ( $data['pageviews'] / $max ) * 100 ) ); ?>%" title="<?php echo $zeroa_tip; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped via esc_attr() above ?>"></div>
 					<div class="zeroa-chart-bar-uniques" style="height:<?php echo esc_attr( round( ( $data['uniques'] / $max ) * 100 ) ); ?>%" title="<?php echo $zeroa_tip; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- escaped via esc_attr() above ?>"></div>
@@ -479,8 +479,8 @@ function zeroa_render_page(): void {
 				<?php endforeach; ?>
 			</div>
 			<div class="zeroa-chart-legend">
-				<span class="legend-uniques"><?php esc_html_e( 'Unique Visitors', 'zero-analytics' ); ?></span>
-				<span class="legend-views"><?php esc_html_e( 'Pageviews', 'zero-analytics' ); ?></span>
+				<span class="legend-uniques"><?php esc_html_e( 'Unique Visitors', 'zeroa-analytics' ); ?></span>
+				<span class="legend-views"><?php esc_html_e( 'Pageviews', 'zeroa-analytics' ); ?></span>
 			</div>
 		</div>
 		<?php endif; ?>
@@ -488,7 +488,7 @@ function zeroa_render_page(): void {
 		<div class="zeroa-grid">
 
 			<div class="zeroa-section">
-				<h2><?php esc_html_e( 'Pages', 'zero-analytics' ); ?></h2>
+				<h2><?php esc_html_e( 'Pages', 'zeroa-analytics' ); ?></h2>
 				<?php
 				$pages_has_next = count( $pages ) > 10;
 				$pages_display  = array_slice( $pages, 0, 10 );
@@ -498,9 +498,9 @@ function zeroa_render_page(): void {
 					<table class="widefat striped">
 						<thead>
 							<tr>
-								<th><?php esc_html_e( 'Page', 'zero-analytics' ); ?></th>
-								<th><?php esc_html_e( 'Unique', 'zero-analytics' ); ?></th>
-								<th><?php esc_html_e( 'Pageviews', 'zero-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Page', 'zeroa-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Unique', 'zeroa-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Pageviews', 'zeroa-analytics' ); ?></th>
 							</tr>
 						</thead>
 						<tbody>
@@ -514,7 +514,7 @@ function zeroa_render_page(): void {
 						</tbody>
 					</table>
 					<?php else : ?>
-						<p><?php esc_html_e( 'No data yet.', 'zero-analytics' ); ?></p>
+						<p><?php esc_html_e( 'No data yet.', 'zeroa-analytics' ); ?></p>
 					<?php endif; ?>
 				</div>
 				<?php if ( $pages_display ) : ?>
@@ -523,7 +523,7 @@ function zeroa_render_page(): void {
 			</div>
 
 			<div class="zeroa-section">
-				<h2><?php esc_html_e( 'Referrers', 'zero-analytics' ); ?></h2>
+				<h2><?php esc_html_e( 'Referrers', 'zeroa-analytics' ); ?></h2>
 				<?php
 				$refs_has_next = count( $refs ) > 10;
 				$refs_display  = array_slice( $refs, 0, 10 );
@@ -533,15 +533,15 @@ function zeroa_render_page(): void {
 					<table class="widefat striped">
 						<thead>
 							<tr>
-								<th><?php esc_html_e( 'Source', 'zero-analytics' ); ?></th>
-								<th><?php esc_html_e( 'Type', 'zero-analytics' ); ?></th>
-								<th><?php esc_html_e( 'Visits', 'zero-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Source', 'zeroa-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Type', 'zeroa-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Visits', 'zeroa-analytics' ); ?></th>
 							</tr>
 						</thead>
 						<tbody>
 						<?php foreach ( $refs_display as $row ) : ?>
 							<tr>
-								<td><?php echo esc_html( $row->referrer_name ?? __( 'Direct / Other', 'zero-analytics' ) ); ?></td>
+								<td><?php echo esc_html( $row->referrer_name ?? __( 'Direct / Other', 'zeroa-analytics' ) ); ?></td>
 								<td><?php echo esc_html( ucfirst( $row->referrer_type ) ); ?></td>
 								<td><?php echo esc_html( number_format_i18n( (int) $row->visits ) ); ?></td>
 							</tr>
@@ -549,7 +549,7 @@ function zeroa_render_page(): void {
 						</tbody>
 					</table>
 					<?php else : ?>
-						<p><?php esc_html_e( 'No data yet.', 'zero-analytics' ); ?></p>
+						<p><?php esc_html_e( 'No data yet.', 'zeroa-analytics' ); ?></p>
 					<?php endif; ?>
 				</div>
 				<?php if ( $refs_display ) : ?>
@@ -558,7 +558,7 @@ function zeroa_render_page(): void {
 			</div>
 
 			<div class="zeroa-section">
-				<h2><?php esc_html_e( 'Countries', 'zero-analytics' ); ?></h2>
+				<h2><?php esc_html_e( 'Countries', 'zeroa-analytics' ); ?></h2>
 				<?php
 				$countries_has_next = count( $countries ) > 10;
 				$countries_display  = array_slice( $countries, 0, 10 );
@@ -568,21 +568,21 @@ function zeroa_render_page(): void {
 					<table class="widefat striped">
 						<thead>
 							<tr>
-								<th><?php esc_html_e( 'Country', 'zero-analytics' ); ?></th>
-								<th><?php esc_html_e( 'Visits', 'zero-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Country', 'zeroa-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Visits', 'zeroa-analytics' ); ?></th>
 							</tr>
 						</thead>
 						<tbody>
 						<?php foreach ( $countries_display as $row ) : ?>
 							<tr>
-								<td><?php echo esc_html( $row->country_code ?? __( 'Unavailable', 'zero-analytics' ) ); ?></td>
+								<td><?php echo esc_html( $row->country_code ?? __( 'Unavailable', 'zeroa-analytics' ) ); ?></td>
 								<td><?php echo esc_html( number_format_i18n( (int) $row->visits ) ); ?></td>
 							</tr>
 						<?php endforeach; ?>
 						</tbody>
 					</table>
 					<?php else : ?>
-						<p><?php esc_html_e( 'No data yet.', 'zero-analytics' ); ?></p>
+						<p><?php esc_html_e( 'No data yet.', 'zeroa-analytics' ); ?></p>
 					<?php endif; ?>
 				</div>
 				<?php if ( $countries_display ) : ?>
@@ -591,7 +591,7 @@ function zeroa_render_page(): void {
 			</div>
 
 			<div class="zeroa-section">
-				<h2><?php esc_html_e( 'Devices', 'zero-analytics' ); ?></h2>
+				<h2><?php esc_html_e( 'Devices', 'zeroa-analytics' ); ?></h2>
 				<?php
 				$devices_has_next = count( $devices ) > 10;
 				$devices_display  = array_slice( $devices, 0, 10 );
@@ -601,21 +601,21 @@ function zeroa_render_page(): void {
 					<table class="widefat striped">
 						<thead>
 							<tr>
-								<th><?php esc_html_e( 'Device', 'zero-analytics' ); ?></th>
-								<th><?php esc_html_e( 'Visits', 'zero-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Device', 'zeroa-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Visits', 'zeroa-analytics' ); ?></th>
 							</tr>
 						</thead>
 						<tbody>
 						<?php foreach ( $devices_display as $row ) : ?>
 							<tr>
-								<td><?php echo esc_html( $device_labels[ (int) $row->device_type ] ?? __( 'Unknown', 'zero-analytics' ) ); ?></td>
+								<td><?php echo esc_html( $device_labels[ (int) $row->device_type ] ?? __( 'Unknown', 'zeroa-analytics' ) ); ?></td>
 								<td><?php echo esc_html( number_format_i18n( (int) $row->visits ) ); ?></td>
 							</tr>
 						<?php endforeach; ?>
 						</tbody>
 					</table>
 					<?php else : ?>
-						<p><?php esc_html_e( 'No data yet.', 'zero-analytics' ); ?></p>
+						<p><?php esc_html_e( 'No data yet.', 'zeroa-analytics' ); ?></p>
 					<?php endif; ?>
 				</div>
 				<?php if ( $devices_display ) : ?>
@@ -624,7 +624,7 @@ function zeroa_render_page(): void {
 			</div>
 
 			<div class="zeroa-section">
-				<h2><?php esc_html_e( 'Errors', 'zero-analytics' ); ?></h2>
+				<h2><?php esc_html_e( 'Errors', 'zeroa-analytics' ); ?></h2>
 				<?php
 				$errors_has_next = count( $errors ) > 10;
 				$errors_display  = array_slice( $errors, 0, 10 );
@@ -634,9 +634,9 @@ function zeroa_render_page(): void {
 					<table class="widefat striped">
 						<thead>
 							<tr>
-								<th><?php esc_html_e( 'Page', 'zero-analytics' ); ?></th>
-								<th><?php esc_html_e( 'Status', 'zero-analytics' ); ?></th>
-								<th><?php esc_html_e( 'Visits', 'zero-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Page', 'zeroa-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Status', 'zeroa-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Visits', 'zeroa-analytics' ); ?></th>
 							</tr>
 						</thead>
 						<tbody>
@@ -650,7 +650,7 @@ function zeroa_render_page(): void {
 						</tbody>
 					</table>
 					<?php else : ?>
-						<p><?php esc_html_e( 'No data yet.', 'zero-analytics' ); ?></p>
+						<p><?php esc_html_e( 'No data yet.', 'zeroa-analytics' ); ?></p>
 					<?php endif; ?>
 				</div>
 				<?php if ( $errors_display ) : ?>
@@ -659,7 +659,7 @@ function zeroa_render_page(): void {
 			</div>
 
 			<div class="zeroa-section">
-				<h2><?php esc_html_e( 'Bots', 'zero-analytics' ); ?></h2>
+				<h2><?php esc_html_e( 'Bots', 'zeroa-analytics' ); ?></h2>
 				<?php
 				$bots_has_next = count( $bots ) > 10;
 				$bots_display  = array_slice( $bots, 0, 10 );
@@ -669,8 +669,8 @@ function zeroa_render_page(): void {
 					<table class="widefat striped">
 						<thead>
 							<tr>
-								<th><?php esc_html_e( 'Page', 'zero-analytics' ); ?></th>
-								<th><?php esc_html_e( 'Visits', 'zero-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Page', 'zeroa-analytics' ); ?></th>
+								<th><?php esc_html_e( 'Visits', 'zeroa-analytics' ); ?></th>
 							</tr>
 						</thead>
 						<tbody>
@@ -683,7 +683,7 @@ function zeroa_render_page(): void {
 						</tbody>
 					</table>
 					<?php else : ?>
-						<p><?php esc_html_e( 'No data yet.', 'zero-analytics' ); ?></p>
+						<p><?php esc_html_e( 'No data yet.', 'zeroa-analytics' ); ?></p>
 					<?php endif; ?>
 				</div>
 				<?php if ( $bots_display ) : ?>
@@ -694,10 +694,10 @@ function zeroa_render_page(): void {
 		</div><!-- .zeroa-grid -->
 
 		<div class="zeroa-actions">
-			<a href="<?php echo esc_url( add_query_arg( [ 'page' => 'zero-analytics', 'zeroa_export' => '1', 'zeroa_export_nonce' => wp_create_nonce( 'zeroa_export' ) ], admin_url( 'index.php' ) ) ); ?>" class="button button-primary"><?php esc_html_e( 'Export All Data', 'zero-analytics' ); ?></a>
+			<a href="<?php echo esc_url( add_query_arg( [ 'page' => 'zeroa-analytics', 'zeroa_export' => '1', 'zeroa_export_nonce' => wp_create_nonce( 'zeroa_export' ) ], admin_url( 'index.php' ) ) ); ?>" class="button button-primary"><?php esc_html_e( 'Export All Data', 'zeroa-analytics' ); ?></a>
 			<form method="post">
 				<?php wp_nonce_field( 'zeroa_clear_data', 'zeroa_clear_nonce' ); ?>
-				<button type="submit" class="button button-link-delete" onclick="return confirm('<?php echo esc_js( __( 'Are you sure you want to delete all analytics data? This cannot be undone.', 'zero-analytics' ) ); ?>')"><?php esc_html_e( 'Clear All Data', 'zero-analytics' ); ?></button>
+				<button type="submit" class="button button-link-delete" onclick="return confirm('<?php echo esc_js( __( 'Are you sure you want to delete all analytics data? This cannot be undone.', 'zeroa-analytics' ) ); ?>')"><?php esc_html_e( 'Clear All Data', 'zeroa-analytics' ); ?></button>
 			</form>
 		</div>
 
@@ -952,7 +952,13 @@ function zeroa_admin_styles(): void {
 		.zeroa-pagination-disabled { opacity: 0.4; cursor: default; pointer-events: none; }
 		.zeroa-pagination-page { font-size: 12px; color: #50575e; }
 		.zeroa-actions { display: flex; gap: 8px; margin-top: 48px; align-items: center; }
-		@media ( max-width: 782px ) { .zeroa-grid { grid-template-columns: 1fr; } .zeroa-summary-cards { display: grid; grid-template-columns: 1fr 1fr; } .zeroa-card { min-width: unset; } .zeroa-range-nav { display: grid; grid-template-columns: repeat(4, 1fr); } .zeroa-range-btn { text-align: center; } }
+		@media ( max-width: 782px ) {
+			.zeroa-grid { grid-template-columns: 1fr; }
+			.zeroa-summary-cards { display: grid; grid-template-columns: 1fr 1fr; }
+			.zeroa-card { min-width: unset; }
+			.zeroa-range-nav { display: grid; grid-template-columns: repeat(4, 1fr); }
+			.zeroa-range-btn { text-align: center; }
+		}
 	';
 	wp_add_inline_style( 'zeroa-admin', $css );
 }

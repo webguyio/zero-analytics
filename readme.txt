@@ -1,4 +1,4 @@
-=== Zero Analytics ===
+=== Zeroa Analytics ===
 
 Contributors: webguyio
 Donate link: https://webguy.io/donate
@@ -16,7 +16,7 @@ Lightweight, GDPR-compliant analytics. No cookies, no personal data, no consent 
 
 [💬 Ask Question](https://github.com/webguyio/zero-analytics/issues) | [📧 Email Me](mailto:webguywork@gmail.com)
 
-Zero Analytics gives you the traffic insights that matter: unique visitors, pageviews, top pages, referrer sources, devices, and countries (without ever collecting personal data).
+Zeroa Analytics gives you the traffic insights that matter: unique visitors, pageviews, top pages, referrer sources, devices, and countries (without ever collecting personal data).
 
 No one ever said tracking people HAD to be creepy. By definition, most analytics tools are in fact super creepy (and in many cases, actually illegal), but it's also possible to simply want to know how much monthly traffic you get, what content people like, and what countries you're popular in, generally, without violating personal data.
 
@@ -46,7 +46,7 @@ No one ever said tracking people HAD to be creepy. By definition, most analytics
 
 == Installation ==
 
-1. Upload the `zero-analytics` folder to `/wp-content/plugins/`.
+1. Upload the `zeroa-analytics` folder to `/wp-content/plugins/`.
 2. Activate the plugin through the Plugins screen in WordPress.
 3. Visit *Dashboard > Analytics* in your WordPress admin menu to view your stats.
 
@@ -58,7 +58,7 @@ No configuration is required. Analytics begins collecting immediately on activat
 
 = How accurate are the stats? =
 
-No analytics tool is 100% accurate. Even Google Analytics can undercount by 20-40% on tech-savvy audiences due to ad blockers and consent banner declines. Zero Analytics captures traffic that cookie-based tools miss entirely, but some visitors will never be counted regardless of which tool you use.
+No analytics tool is 100% accurate. Even Google Analytics can undercount by 20-40% on tech-savvy audiences due to ad blockers and consent banner declines. Zeroa Analytics captures traffic that cookie-based tools miss entirely, but some visitors will never be counted regardless of which tool you use.
 
 What the stats are reliably good for is identifying signals: which pages are most popular, where your traffic comes from, which referrers are sending visitors, and how trends change over time. These relative patterns are consistent and actionable even when the overall numbers aren't perfect.
 
@@ -68,7 +68,7 @@ A few common reasons: you may be logged in as an editor or admin (test logged ou
 
 = Do I need a cookie consent banner? =
 
-No. Zero Analytics does not use cookies, localStorage, or any client-side storage. No personal data is processed or stored. You do not need a consent banner for this plugin under GDPR, CCPA, or PECR.
+No. Zeroa Analytics does not use cookies, localStorage, or any client-side storage. No personal data is processed or stored. You do not need a consent banner for this plugin under GDPR, CCPA, or PECR.
 
 = How are unique visitors counted without cookies? =
 
@@ -88,7 +88,7 @@ Yes, but they are excluded from all main statistics. Bot traffic is recorded sep
 
 = Does this plugin work with caching plugins? =
 
-Yes. Zero Analytics uses a lightweight tracking pixel that fires on every page load. Error pages (404s, 500s) are additionally captured server-side for full status code context.
+Yes. Zeroa Analytics uses a lightweight tracking pixel that fires on every page load. Error pages (404s, 500s) are additionally captured server-side for full status code context.
 
 == Changelog ==
 
